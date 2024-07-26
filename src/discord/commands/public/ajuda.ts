@@ -2,7 +2,6 @@ import { Command } from "#base";
 import { createEmbed } from "@magicyan/discord";
 import { ApplicationCommandType } from "discord.js";
 
-// Lista de comandos e suas descrições
 const commands = [
     { name: "/ajuda", description: "Exibe uma lista de todos os comandos disponíveis e como usá-los." },
     { name: "/criar_lembrete", description: "Cria um lembrete para uma tarefa ou evento futuro." },
@@ -25,7 +24,7 @@ new Command({
     type: ApplicationCommandType.ChatInput,
     async run(interaction) {
         const embed = createEmbed({
-            color: "#00FF00",  // Escolha uma cor apropriada para o embed
+            color: "#00FF00", 
             title: "Lista de Comandos",
             description: commands.map(cmd => `**${cmd.name}**: ${cmd.description}`).join("\n")
         });
