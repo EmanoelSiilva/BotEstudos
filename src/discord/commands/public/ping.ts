@@ -1,5 +1,5 @@
 import { Command } from "#base";
-import { settings } from "#settings"
+import { settings } from "#settings";
 import { createEmbed } from "@magicyan/discord";
 import { ApplicationCommandType } from "discord.js";
 
