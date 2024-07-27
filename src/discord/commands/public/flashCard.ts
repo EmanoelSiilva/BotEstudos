@@ -1,9 +1,9 @@
 import { Command } from "#base";
 import { createEmbed } from "@magicyan/discord";
-import { ApplicationCommandType, ApplicationCommandOptionType } from "discord.js";
+import { ApplicationCommandType, ApplicationCommandOptionType, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from "discord.js";
 
 // Simulação de armazenamento de flashcards (substitua por um banco de dados em produção)
-const flashcards = new Map();
+const flashcards = new Map();  // userId -> [{question, answer}]
 
 new Command({
     name: "flashcards",
@@ -124,23 +124,92 @@ new Command({
             }
 
             const userFlashcards = flashcards.get(userId);
-            for (let i = 0; i < userFlashcards.length; i++) {
-                const flashcard = userFlashcards[i];
+            let currentIndex = 0;
+
+            const showFlashcard = async (index: number) => {
+                const flashcard = userFlashcards[index];
                 const embed = createEmbed({
                     color: "#FFFF00",
                     description: `**Pergunta:** ${flashcard.question}`
                 });
 
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                const row = new ActionRowBuilder<ButtonBuilder>()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId("showAnswer")
+                            .setLabel("Mostrar Resposta")
+                            .setStyle(ButtonStyle.Primary)
+                    );
 
-                await new Promise(resolve => setTimeout(resolve, 3000)); // Espera 3 segundos antes de mostrar a resposta
+                await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+            };
 
-                const embedAnswer = createEmbed({
+            const handleAnswer = async (index: number) => {
+                const flashcard = userFlashcards[index];
+                const embed = createEmbed({
                     color: "#00FF00",
-                    description: `**Resposta:** ${flashcard.answer}`
+                    description: `**Pergunta:** ${flashcard.question}\n**Resposta:** ${flashcard.answer}`
                 });
 
-                await interaction.followUp({ embeds: [embedAnswer], ephemeral: true });
+                const row = new ActionRowBuilder<ButtonBuilder>()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId("errei")
+                            .setLabel("Errei")
+                            .setStyle(ButtonStyle.Danger),
+                        new ButtonBuilder()
+                            .setCustomId("dificil")
+                            .setLabel("Difícil")
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId("bom")
+                            .setLabel("Bom")
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId("facil")
+                            .setLabel("Fácil")
+                            .setStyle(ButtonStyle.Success)
+                    );
+
+                await interaction.editReply({ embeds: [embed], components: [row] });
+            };
+
+            if (interaction.channel) {
+                const collector = interaction.channel.createMessageComponentCollector({
+                    componentType: ComponentType.Button,
+                    time: 60000 // 1 minuto
+                });
+
+                collector.on("collect", async (buttonInteraction) => {
+                    if (buttonInteraction.user.id !== interaction.user.id) {
+                        return buttonInteraction.reply({ content: "Você não pode interagir com este flashcard.", ephemeral: true });
+                    }
+
+                    if (buttonInteraction.customId === "showAnswer") {
+                        await handleAnswer(currentIndex);
+                    } else {
+                        currentIndex++;
+                        if (currentIndex < userFlashcards.length) {
+                            await showFlashcard(currentIndex);
+                        } else {
+                            await buttonInteraction.reply({ content: "Você revisou todos os seus flashcards!", ephemeral: true });
+                            collector.stop();
+                        }
+                    }
+
+                    await buttonInteraction.deferUpdate();
+
+                    return ;
+                });
+
+                collector.on("end", collected => {
+                    console.log(`Coletado ${collected.size} interações.`);
+                });
+
+                await showFlashcard(currentIndex);
+
+            } else {
+                await interaction.reply({ content: "Erro ao acessar o canal para coletar interações.", ephemeral: true });
             }
         } else if (subcommand === "listar") {
             if (!flashcards.has(userId) || flashcards.get(userId).length === 0) {
@@ -172,6 +241,7 @@ new Command({
 
             await interaction.reply({ embeds: [embed], ephemeral: true });
         }
+
         return;
     }
 });
