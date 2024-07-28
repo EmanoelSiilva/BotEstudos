@@ -1,9 +1,7 @@
 import { Command } from "#base";
 import { createEmbed } from "@magicyan/discord";
 import { ApplicationCommandType, ApplicationCommandOptionType, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from "discord.js";
-
-// Simulação de armazenamento de flashcards (substitua por um banco de dados em produção)
-const flashcards = new Map();  // userId -> [{question, answer}]
+import { getUserFlashcards, addUserFlashcard, deleteUserFlashcard, updateUserFlashcard } from "database/FlashCard.js";
 
 new Command({
     name: "flashcards",
@@ -84,14 +82,10 @@ new Command({
         const userId = interaction.user.id;
 
         if (subcommand === "criar") {
-            const pergunta = interaction.options.getString("pergunta");
-            const resposta = interaction.options.getString("resposta");
+            const pergunta = interaction.options.getString("pergunta") ?? "";
+            const resposta = interaction.options.getString("resposta") ?? "";
 
-            if (!flashcards.has(userId)) {
-                flashcards.set(userId, []);
-            }
-
-            flashcards.get(userId).push({ question: pergunta, answer: resposta });
+            await addUserFlashcard(userId, { question: pergunta, answer: resposta });
 
             const embed = createEmbed({
                 color: "#00FF00",
@@ -104,13 +98,16 @@ new Command({
             const novaPergunta = interaction.options.getString("nova_pergunta");
             const novaResposta = interaction.options.getString("nova_resposta");
 
-            if (index === null || !flashcards.has(userId) || index >= flashcards.get(userId).length) {
+            const flashcards = await getUserFlashcards(userId);
+            if (index === null || index >= flashcards.length) {
                 return interaction.reply({ content: "Flashcard não encontrado!", ephemeral: true });
             }
 
-            const flashcard = flashcards.get(userId)[index];
+            const flashcard = flashcards[index];
             if (novaPergunta) flashcard.question = novaPergunta;
             if (novaResposta) flashcard.answer = novaResposta;
+
+            await updateUserFlashcard(userId, index, flashcard);
 
             const embed = createEmbed({
                 color: "#00FF00",
@@ -119,15 +116,15 @@ new Command({
 
             await interaction.reply({ embeds: [embed], ephemeral: true });
         } else if (subcommand === "revisar") {
-            if (!flashcards.has(userId) || flashcards.get(userId).length === 0) {
+            const flashcards = await getUserFlashcards(userId);
+            if (flashcards.length === 0) {
                 return interaction.reply({ content: "Você não tem flashcards para revisar.", ephemeral: true });
             }
 
-            const userFlashcards = flashcards.get(userId);
             let currentIndex = 0;
 
             const showFlashcard = async (index: number) => {
-                const flashcard = userFlashcards[index];
+                const flashcard = flashcards[index];
                 const embed = createEmbed({
                     color: "#FFFF00",
                     description: `**Pergunta:** ${flashcard.question}`
@@ -145,7 +142,7 @@ new Command({
             };
 
             const handleAnswer = async (index: number) => {
-                const flashcard = userFlashcards[index];
+                const flashcard = flashcards[index];
                 const embed = createEmbed({
                     color: "#00FF00",
                     description: `**Pergunta:** ${flashcard.question}\n**Resposta:** ${flashcard.answer}`
@@ -177,7 +174,7 @@ new Command({
             if (interaction.channel) {
                 const collector = interaction.channel.createMessageComponentCollector({
                     componentType: ComponentType.Button,
-                    time: 60000 // 1 minuto
+                    time: 60000 
                 });
 
                 collector.on("collect", async (buttonInteraction) => {
@@ -189,7 +186,7 @@ new Command({
                         await handleAnswer(currentIndex);
                     } else {
                         currentIndex++;
-                        if (currentIndex < userFlashcards.length) {
+                        if (currentIndex < flashcards.length) {
                             await showFlashcard(currentIndex);
                         } else {
                             await buttonInteraction.reply({ content: "Você revisou todos os seus flashcards!", ephemeral: true });
@@ -199,7 +196,7 @@ new Command({
 
                     await buttonInteraction.deferUpdate();
 
-                    return ;
+                    return;
                 });
 
                 collector.on("end", collected => {
@@ -207,17 +204,16 @@ new Command({
                 });
 
                 await showFlashcard(currentIndex);
-
             } else {
                 await interaction.reply({ content: "Erro ao acessar o canal para coletar interações.", ephemeral: true });
             }
         } else if (subcommand === "listar") {
-            if (!flashcards.has(userId) || flashcards.get(userId).length === 0) {
+            const flashcards = await getUserFlashcards(userId);
+            if (flashcards.length === 0) {
                 return interaction.reply({ content: "Você não tem flashcards.", ephemeral: true });
             }
 
-            const userFlashcards = flashcards.get(userId);
-            const description = userFlashcards.map((fc: { question: string, answer: string }, index: number) => `**${index}:** ${fc.question} -> ${fc.answer}`).join("\n");
+            const description = flashcards.map((fc, index) => `**${index}:** ${fc.question} -> ${fc.answer}`).join("\n");
 
             const embed = createEmbed({
                 color: "#00FF00",
@@ -228,11 +224,12 @@ new Command({
         } else if (subcommand === "excluir") {
             const index = interaction.options.getInteger("index");
 
-            if (index === null || !flashcards.has(userId) || index >= flashcards.get(userId).length) {
+            const flashcards = await getUserFlashcards(userId);
+            if (index === null || index >= flashcards.length) {
                 return interaction.reply({ content: "Flashcard não encontrado!", ephemeral: true });
             }
 
-            flashcards.get(userId).splice(index, 1);
+            await deleteUserFlashcard(userId, index);
 
             const embed = createEmbed({
                 color: "#FF0000",
