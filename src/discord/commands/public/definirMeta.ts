@@ -3,6 +3,11 @@ import { createEmbed } from "@magicyan/discord";
 import { ApplicationCommandType, ApplicationCommandOptionType, ChatInputCommandInteraction } from "discord.js";
 import { addUserGoal } from "database/MetaDb.js";
 
+const parseDate = (dateStr: string): Date => {
+    const [day, month, year] = dateStr.split("-").map(Number);
+    return new Date(year, month - 1, day);
+};
+
 new Command({
     name: "definir_meta",
     description: "Defina uma nova meta de estudo.",
@@ -17,13 +22,13 @@ new Command({
         },
         {
             name: "data_início",
-            description: "Data de início da meta (YYYY-MM-DD)",
+            description: "Data de início da meta (DD-MM-YYYY)",
             type: ApplicationCommandOptionType.String,
             required: true
         },
         {
             name: "data_término",
-            description: "Data de término da meta (YYYY-MM-DD)",
+            description: "Data de término da meta (DD-MM-YYYY)",
             type: ApplicationCommandOptionType.String,
             required: true
         },
@@ -40,11 +45,11 @@ new Command({
         const dataTérminoStr: string = interaction.options.getString("data_término") ?? "";
         const frequência: string = interaction.options.getString("frequência") ?? "";
 
-        const dataInício: Date = new Date(dataInícioStr);
-        const dataTérmino: Date = new Date(dataTérminoStr);
+        const dataInício: Date = parseDate(dataInícioStr);
+        const dataTérmino: Date = parseDate(dataTérminoStr);
 
         if (isNaN(dataInício.getTime()) || isNaN(dataTérmino.getTime())) {
-            return interaction.reply({ content: "Data inválida. Por favor, use o formato YYYY-MM-DD.", ephemeral: true });
+            return interaction.reply({ content: "Data inválida. Por favor, use o formato DD-MM-YYYY.", ephemeral: true });
         }
 
         if (dataInício >= dataTérmino) {
@@ -62,7 +67,7 @@ new Command({
 
         const embed = createEmbed({
             color: "#00FF00",
-            description: `Meta criada com sucesso!\n**Descrição:** ${descrição}\n**Data de Início:** ${dataInício.toLocaleDateString()}\n**Data de Término:** ${dataTérmino.toLocaleDateString()}\n**Frequência:** ${frequência}`
+            description: `Meta criada com sucesso!\n**Descrição:** ${descrição}\n**Data de Início:** ${dataInício.toLocaleDateString("pt-BR")}\n**Data de Término:** ${dataTérmino.toLocaleDateString("pt-BR")}\n**Frequência:** ${frequência}`
         });
 
         await interaction.reply({ embeds: [embed], ephemeral: true });
