@@ -2,8 +2,18 @@ import { db } from "#database";
 import { Goal } from "./interfaces/Goal.js";
 
 
+const parseGoalDates = (goal: any): Goal => ({
+    ...goal,
+    startDate: new Date(goal.startDate),
+    endDate: new Date(goal.endDate)
+});
+
 const getUserGoals = async (userId: string): Promise<Goal[]> => {
-    return await db.members.get(`${userId}.goals`) || [];
+    const goals = await db.members.get(`${userId}.goals`);
+    if (Array.isArray(goals)) {
+        return goals.map(parseGoalDates);
+    }
+    return [];
 };
 
 const addUserGoal = async (userId: string, goal: Goal): Promise<void> => {

@@ -187,7 +187,12 @@ new Command({
 
             await updateUserGoal(userId, index, goals[index]);
 
-            return interaction.reply({ content: "Meta atualizada com sucesso!", ephemeral: true });
+            const embed = createEmbed({
+                color: "#00FF00",
+                description: `Meta editada com sucesso!\n**Descrição:** ${goals[index].description}\n**Data de Início:** ${goals[index].startDate.toLocaleDateString("pt-BR")}\n**Data de Término:** ${goals[index].endDate.toLocaleDateString("pt-BR")}\n**Frequência:** ${goals[index].frequency}`
+            });
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
 
         } else if (subcommand === "excluir") {
             const index: number = interaction.options.getInteger("índice")!;
